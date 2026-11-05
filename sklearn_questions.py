@@ -135,7 +135,7 @@ class RegistrationSplit(BaseCrossValidator):
         n_splits : int
             The number of valid splits.
         """
-        return sum(1 for _ in self._iter_splits(X, y))
+        return sum(1 for _ in self.split(X, y))
 
     def split(self, X, y, groups=None):
         """Generate indices to split data into training and test sets.
@@ -157,10 +157,6 @@ class RegistrationSplit(BaseCrossValidator):
         idx_test : ndarray
             The testing set indices for that split.
         """
-        yield from self._iter_splits(X, y)
-
-    def _iter_splits(self, X, y):
-        """Yield adjacent-month splits containing both churn classes."""
         if not isinstance(X, pd.DataFrame) or "registration_month" not in X:
             raise ValueError("X must contain a datetime registration_month column.")
         if not pd.api.types.is_datetime64_any_dtype(X["registration_month"]):
@@ -214,31 +210,26 @@ def get_estimator():
         "rate_errors",
     ]
 
-    preprocessor = ColumnTransformer(
-        [
-            (
-                "categorical",
-                OneHotEncoder(handle_unknown="ignore"),
-                categorical_features,
-            ),
-            (
-                "numerical",
-                Pipeline(
-                    steps=[
-                        ("imputer", SimpleImputer(strategy="median")),
-                        ("scaler", StandardScaler()),
-                    ]
-                ),
-                numerical_features,
-            ),
-        ]
-    )
-    return Pipeline(
-        steps=[
-            ("preprocessor", preprocessor),
-            ("classifier", LogisticRegression(max_iter=2000)),
-        ]
-    )
+    preprocessor = ColumnTransformer([
+        (
+            "categorical",
+            OneHotEncoder(handle_unknown="ignore"),
+            categorical_features
+        ),
+        (
+            "numerical",
+            Pipeline([
+                ("imputer", SimpleImputer(strategy="median")),
+                ("scaler", StandardScaler()),
+            ]),
+            numerical_features
+        )
+    ])
+
+    return Pipeline([
+        ("preprocessor", preprocessor),
+        ("classifier", LogisticRegression(max_iter=2000))
+    ])
 
 
 # ============================================================
@@ -264,7 +255,7 @@ if __name__ == "__main__":
         print(
             f"Fold {i}: train={sorted(m_tr)} "
             f"(n={len(tr)}, churn={churn_tr:.1%})"
-            f"  →  test={sorted(m_te)} "
+            f"  ->  test={sorted(m_te)} "
             f"(n={len(te)}, churn={churn_te:.1%})"
         )
 
